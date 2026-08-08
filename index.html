@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>句乐部 - Claire的英语学习</title>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- PWA Meta Tags -->
+<meta name="theme-color" content="#4F46E5">
+<meta name="description" content="根据中文写英文句子，挑战你的对话记忆。支持离线使用。">
+
+<!-- iOS PWA Support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="句乐部">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+
+<script src="data.js"></script>
+<style>
+  :root {
+    --primary: #4F46E5;
+    --primary-dark: #4338CA;
+    --secondary: #10B981;
+    --accent: #F59E0B;
+    --bg: #F3F4F6;
+    --card: #FFFFFF;
+    --text: #1F2937;
+    --text-light: #6B7280;
+    --border: #E5E7EB;
+    --success: #10B981;
+    --error: #EF4444;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+  header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+  header h1 {
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  header p { color: var(--text-light); font-size: 0.95rem; }
+
+  /* Level Select */
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .level-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+    position: relative;
+  }
+  .level-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+  }
+  .level-card.locked {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+  .level-card.locked:hover {
+    transform: none;
+    border-color: transparent;
+  }
+  .level-card .badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--success);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .level-card .badge.new {
+    background: var(--accent);
+  }
+  .level-card h3 { font-size: 1.1rem; margin-bottom: 6px; color: var(--text); }
+  .level-card .meta { font-size: 0.8rem; color: var(--text-light); }
+  .level-card .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .level-card .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    border-radius: 3px;
+    transition: width 0.5s;
+  }
+
+  /* Practice Screen */
+  .practice-screen { display: none; }
+  .practice-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .practice-header button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  .practice-header button:hover { background: var(--bg); }
+  .progress-text { font-size: 0.9rem; color: var(--text-light); }
+
+  .sentence-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .round-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .round-badge.done {
+    background: linear-gradient(135deg, var(--success), #059669);
+  }
+  .speaker-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .speaker-badge.maribel {
+    background: #F3E8FF;
+    color: #7C3AED;
+    border: 1px solid #D8B4FE;
+  }
+  .speaker-badge.user {
+    background: #DBEAFE;
+    color: #2563EB;
+    border: 1px solid #93C5FD;
+  }
+  .chinese-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .hint-text {
+    font-size: 1.1rem;
+    color: var(--text-light);
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+    font-family: "Courier New", monospace;
+    background: #F9FAFB;
+    padding: 16px;
+    border-radius: 12px;
+    word-break: break-all;
+  }
+  .input-area {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto 20px;
+  }
+  .input-area input {
+    width: 100%;
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    text-align: center;
+  }
+  .input-area input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+  }
+  .input-area input.correct {
+    border-color: var(--success);
+    background: #ECFDF5;
+  }
+  .input-area input.wrong {
+    border-color: var(--error);
+    background: #FEF2F2;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    padding: 14px 36px;
+    font-size: 1.05rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(79,70,229,0.4);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-skip {
+    background: #FFF7ED;
+    color: #EA580C;
+    border: 2px solid #FDBA74;
+    padding: 14px 24px;
+    font-size: 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    margin-left: 12px;
+  }
+  .btn-skip:hover {
+    background: #FFEDD5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(234,88,12,0.2);
+  }
+  .btn-skip:active { transform: translateY(0); }
+  .btn-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .btn-review {
+    background: #FFF7ED;
+    color: #EA580C;
+    border: 2px solid #FDBA74;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+    margin-top: 16px;
+  }
+  .btn-review:hover { background: #FFEDD5; }
+  .skipped-banner {
+    background: #FFF7ED;
+    border: 1px solid #FED7AA;
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-top: 16px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #9A3412;
+  }
+  .skipped-review-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .skipped-review-card .skipped-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .btn-listen {
+    background: #EEF2FF;
+    color: var(--primary-dark);
+    border: 1px solid #C7D2FE;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+  .btn-listen:hover { background: #E0E7FF; }
+  .btn-unskip {
+    background: var(--success);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s;
+  }
+  .btn-unskip:hover { transform: translateY(-1px); }
+  .feedback {
+    margin-top: 16px;
+    font-size: 0.95rem;
+    min-height: 28px;
+    font-weight: 500;
+  }
+  .feedback.success { color: var(--success); }
+  .feedback.error { color: var(--error); }
+
+  /* Word chips after correct */
+  .word-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--border);
+  }
+  .word-chip {
+    position: relative;
+    background: #EEF2FF;
+    color: var(--primary-dark);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s, transform 0.2s;
+    border: 1px solid #C7D2FE;
+  }
+  .word-chip:hover {
+    background: #E0E7FF;
+    transform: scale(1.05);
+  }
+  .word-chip .tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    background: var(--text);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    white-space: normal;
+    min-width: 150px;
+    max-width: 320px;
+    text-align: left;
+    line-height: 1.5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+  }
+  .word-chip .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--text);
+  }
+
+  /* Completion screen */
+  .completion-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .completion-card .trophy {
+    font-size: 4rem;
+    margin-bottom: 16px;
+  }
+  .completion-card h2 {
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .completion-card p { color: var(--text-light); margin-bottom: 24px; }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-box {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .stat-box .number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .stat-box .label { font-size: 0.8rem; color: var(--text-light); }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+  .shake { animation: shake 0.35s ease-in-out; }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .pop { animation: pop 0.3s ease-out; }
+
+  /* Footer note */
+  .update-note {
+    text-align: center;
+    margin-top: 30px;
+    padding: 16px;
+    background: #E0E7FF;
+    border-radius: 12px;
+    color: var(--primary-dark);
+    font-size: 0.85rem;
+  }
+  .update-note code {
+    background: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 12px; }
+    header h1 { font-size: 1.5rem; }
+    .sentence-card { padding: 20px; }
+    .chinese-text { font-size: 1.2rem; }
+    .stats-grid { grid-template-columns: 1fr; }
+  }
+
+  /* PWA: iOS safe area support */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .container {
+    padding-top: calc(20px + env(safe-area-inset-top));
+  }
+
+  /* PWA: Standalone mode styling */
+  @media (display-mode: standalone) {
+    header { padding-top: 10px; }
+    header h1::after {
+      content: '';
+    }
+  }
+
+  /* PWA: Disable text selection for app-like feel */
+  .sentence-card, .level-card, .btn-primary, .btn-skip {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .input-area input {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* PWA: Install hint banner */
+  .install-hint {
+    display: none;
+    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .install-hint.show { display: block; }
+  .install-hint .close-btn {
+    float: right;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .install-hint .close-btn:hover { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- iOS Install Hint (shown when not in standalone mode on iOS) -->
+  <div id="installHint" class="install-hint">
+    <span class="close-btn" onclick="document.getElementById('installHint').classList.remove('show')">&times;</span>
+    📱 点击底部<strong>分享</strong>按钮 → 选择<strong>「添加到主屏幕」</strong>，即可像 App 一样使用，支持离线！
+  </div>
+
+  <header>
+    <h1>句乐部 SentenceClub</h1>
+    <p>根据中文写出英文句子，挑战你的对话记忆</p>
+  </header>
+
+  <!-- Level Selection -->
+  <div id="levelSelect" class="level-select fade-in">
+    <div class="level-grid" id="levelGrid"></div>
+    <div class="update-note">
+      <strong>更新说明：</strong>每次外教课后，通过 TRAE Work 上传新录音，我会更新 <code>data.js</code> 文件并添加新关卡。
+    </div>
+  </div>
+
+  <!-- Practice Screen -->
+  <div id="practiceScreen" class="practice-screen">
+    <div class="practice-header">
+      <button onclick="app.goHome()">&#8592; 返回关卡</button>
+      <div class="progress-text" id="progressText">第 1 / 15 句</div>
+    </div>
+    <div id="practiceContent"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'sentenceclub_progress_v1';
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { return {}; }
+}
+function saveProgress(progress) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+function normalize(str) {
+  return str.toLowerCase().replace(/[.,!?;:''""]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isSimilar(a, b) {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na === nb) return true;
+  // Allow minor typos: levenshtein distance <= 2 for short, <= 3 for longer
+  const dist = levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen <= 10) return dist <= 1;
+  if (maxLen <= 20) return dist <= 2;
+  return dist <= 3;
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  const dp = Array.from({length: m+1}, (_, i) => Array(n+1).fill(0));
+  for (let i=0;i<=m;i++) dp[i][0]=i;
+  for (let j=0;j<=n;j++) dp[0][j]=j;
+  for (let i=1;i<=m;i++) {
+    for (let j=1;j<=n;j++) {
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+const app = {
+  progress: loadProgress(),
+  currentLevel: null,
+  currentIndex: 0,
+  currentRound: 1, // 1 or 2
+  tempInput: '',
+  viewMode: 'practice', // 'practice' or 'skippedReview'
+
+  init() {
+    this.renderLevels();
+  },
+
+  renderLevels() {
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    LEVELS.forEach((level, idx) => {
+      const prog = this.progress[level.id] || { completed: 0, total: level.sentences.length, mastered: [], skipped: [] };
+      if (!prog.skipped) prog.skipped = [];
+      const percent = Math.round((prog.completed / prog.total) * 100);
+      const isUnlocked = idx === 0 || (this.progress[LEVELS[idx-1].id]?.completed >= LEVELS[idx-1].sentences.length);
+      const skippedCount = prog.skipped.length;
+      const card = document.createElement('div');
+      card.className = 'level-card ' + (!isUnlocked ? 'locked' : '');
+      card.innerHTML = `
+        ${prog.completed >= prog.total && prog.total > 0 ? '<span class="badge">已完成</span>' : idx === LEVELS.length-1 ? '<span class="badge new">新关卡</span>' : ''}
+        <h3>${level.title}</h3>
+        <div class="meta">${level.date} · ${level.sentences.length} 句</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
+        <div class="meta" style="margin-top:6px">进度 ${prog.completed}/${prog.total}${skippedCount > 0 ? ' · 跳过 ' + skippedCount : ''}</div>
+      `;
+      if (isUnlocked) {
+        card.onclick = () => this.startLevel(level.id);
+      }
+      grid.appendChild(card);
+    });
+  },
+
+  startLevel(levelId) {
+    this.currentLevel = LEVELS.find(l => l.id === levelId);
+    if (!this.progress[levelId]) {
+      this.progress[levelId] = { completed: 0, total: this.currentLevel.sentences.length, mastered: [], skipped: [] };
+    }
+    if (!this.progress[levelId].skipped) {
+      this.progress[levelId].skipped = [];
+    }
+    this.currentIndex = 0;
+    this.currentRound = 1;
+    this.viewMode = 'practice';
+    document.getElementById('levelSelect').style.display = 'none';
+    document.getElementById('practiceScreen').style.display = 'block';
+    this.renderSentence();
+  },
+
+  goHome() {
+    document.getElementById('practiceScreen').style.display = 'none';
+    document.getElementById('levelSelect').style.display = 'block';
+    this.renderLevels();
+  },
+
+  renderSentence() {
+    const level = this.currentLevel;
+    const total = level.sentences.length;
+    const prog = this.progress[level.id];
+    const completed = prog.completed;
+
+    // Find next unmastered and unskipped sentence
+    while (this.currentIndex < total) {
+      const sid = level.sentences[this.currentIndex].id;
+      const isDone = prog.mastered.includes(sid) || prog.skipped.includes(sid);
+      if (!isDone) break;
+      this.currentIndex++;
+    }
+
+    const content = document.getElementById('practiceContent');
+
+    if (this.currentIndex >= total) {
+      // All done
+      const masteredCount = prog.mastered.length;
+      const skippedCount = prog.skipped.length;
+      content.innerHTML = `
+        <div class="completion-card fade-in">
+          <div class="trophy">🏆</div>
+          <h2>恭喜通关！</h2>
+          <p>你已完成「${level.title}」的所有句子挑战</p>
+          <div class="stats-grid">
+            <div class="stat-box"><div class="number" style="color:var(--primary)">${masteredCount}</div><div class="label">掌握句子</div></div>
+            <div class="stat-box"><div class="number" style="color:var(--accent)">${skippedCount}</div><div class="label">跳过句子</div></div>
+            <div class="stat-box"><div class="number" style="color:var(--success)">${total}</div><div class="label">总句子数</div></div>
+          </div>
+          ${skippedCount > 0 ? `
+            <div class="skipped-banner">
+              💡 你跳过了 ${skippedCount} 个句子，可以稍后重新挑战哦
+              <br><button class="btn-review" onclick="app.showSkippedReview()">查看已跳过的句子</button>
+            </div>
+          ` : ''}
+          <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+            <button class="btn-primary" onclick="app.goHome()">返回关卡列表</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('progressText').textContent = `已完成 ${total}/${total}`;
+      return;
+    }
+
+    const sent = level.sentences[this.currentIndex];
+    const roundLabel = this.currentRound === 1 ? '第 1 遍（还需 2 遍）' : '第 2 遍（还需 1 遍）';
+    const isReview = this.currentRound === 2;
+
+    document.getElementById('progressText').textContent = `第 ${this.currentIndex+1} / ${total} 句`;
+
+    const speakerLabel = sent.speaker === 'Maribel'
+      ? '<span class="speaker-badge maribel">👩‍🏫 外教 Maribel</span>'
+      : '<span class="speaker-badge user">🎓 我（用户）</span>';
+    const inputPlaceholder = sent.speaker === 'Maribel'
+      ? '请输入外教 Maribel 说的英文句子...'
+      : '请输入你说的英文句子...';
+
+    const skippedCount = prog.skipped.length;
+
+    content.innerHTML = `
+      <div class="sentence-card fade-in">
+        <div class="round-badge ${isReview ? 'done' : ''}">${roundLabel}</div>
+        ${speakerLabel}
+        <div class="chinese-text">${sent.chinese}</div>
+        <div class="hint-text" id="hintText">${sent.hint}</div>
+        <div class="input-area">
+          <input type="text" id="answerInput" placeholder="${inputPlaceholder}" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="submitBtn" onclick="app.checkAnswer()">提交答案</button>
+          <button class="btn-skip" onclick="app.skipSentence()">⏭ 跳过</button>
+        </div>
+        <div class="feedback" id="feedback"></div>
+        <div id="wordArea"></div>
+        ${skippedCount > 0 ? `<div class="skipped-banner">已跳过 ${skippedCount} 句 · <a href="javascript:app.showSkippedReview()" style="color:#9A3412;font-weight:600;text-decoration:underline">查看已跳过句子</a></div>` : ''}
+      </div>
+    `;
+    setTimeout(() => document.getElementById('answerInput').focus(), 100);
+  },
+
+  checkAnswer() {
+    const input = document.getElementById('answerInput');
+    const feedback = document.getElementById('feedback');
+    const sent = this.currentLevel.sentences[this.currentIndex];
+    const val = input.value.trim();
+
+    if (!val) {
+      feedback.textContent = '请输入答案';
+      feedback.className = 'feedback error';
+      return;
+    }
+
+    if (isSimilar(val, sent.english)) {
+      input.className = 'correct';
+      feedback.textContent = this.currentRound === 1 ? '正确！再来一遍巩固记忆 👍' : '完美掌握！已解锁单词释义 🎉';
+      feedback.className = 'feedback success';
+
+      if (this.currentRound === 1) {
+        this.currentRound = 2;
+        input.disabled = true;
+        setTimeout(() => {
+          this.renderSentence();
+        }, 1200);
+      } else {
+        // Mastered!
+        input.disabled = true;
+        this.progress[this.currentLevel.id].completed++;
+        this.progress[this.currentLevel.id].mastered.push(sent.id);
+        saveProgress(this.progress);
+        this.showWords(sent);
+        // Show a "Next" button instead of auto-advancing
+        const area = document.getElementById('wordArea');
+        if (area) {
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'btn-primary next-btn';
+          nextBtn.id = 'nextBtn';
+          nextBtn.textContent = '下一句 →';
+          nextBtn.style.marginTop = '20px';
+          nextBtn.onclick = () => {
+            this.currentRound = 1;
+            this.currentIndex++;
+            this.renderSentence();
+          };
+          area.appendChild(nextBtn);
+          setTimeout(() => nextBtn.focus(), 100);
+        }
+      }
+    } else {
+      input.className = 'wrong';
+      feedback.className = 'feedback error';
+      // Show exact expected answer on failure
+      feedback.innerHTML = `不太对哦，参考答案是：<br><strong style="color:#1F2937">${sent.english}</strong>`;
+      input.parentElement.classList.add('shake');
+      setTimeout(() => input.parentElement.classList.remove('shake'), 400);
+      // Reset round if wrong on round 2
+      if (this.currentRound === 2) {
+        this.currentRound = 1;
+      }
+      // Let user retry immediately
+      setTimeout(() => {
+        input.value = '';
+        input.className = '';
+        input.disabled = false;
+        input.focus();
+      }, 2500);
+    }
+  },
+
+  skipSentence() {
+    const sent = this.currentLevel.sentences[this.currentIndex];
+    const prog = this.progress[this.currentLevel.id];
+    // Only skip if not already mastered or skipped
+    if (!prog.mastered.includes(sent.id) && !prog.skipped.includes(sent.id)) {
+      prog.skipped.push(sent.id);
+      prog.completed++;
+      saveProgress(this.progress);
+    }
+    this.currentRound = 1;
+    this.currentIndex++;
+    this.renderSentence();
+  },
+
+  showSkippedReview() {
+    this.viewMode = 'skippedReview';
+    const level = this.currentLevel;
+    const prog = this.progress[level.id];
+    const skippedIds = prog.skipped || [];
+    const skippedSentences = level.sentences.filter(s => skippedIds.includes(s.id));
+
+    const content = document.getElementById('practiceContent');
+    document.getElementById('progressText').textContent = '已跳过的句子';
+
+    if (skippedSentences.length === 0) {
+      content.innerHTML = `
+        <div class="completion-card fade-in">
+          <div style="font-size:3rem;margin-bottom:16px">✅</div>
+          <h2>没有已跳过的句子</h2>
+          <p>太棒了，你完成了所有句子！</p>
+          <div style="margin-top:20px">
+            <button class="btn-primary" onclick="app.backToPractice()">返回练习</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const cards = skippedSentences.map(sent => {
+      const speakerLabel = sent.speaker === 'Maribel'
+        ? '<span class="speaker-badge maribel">👩‍🏫 外教 Maribel</span>'
+        : '<span class="speaker-badge user">🎓 我（用户）</span>';
+      return `
+        <div class="skipped-review-card fade-in" id="skip-card-${sent.id}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            ${speakerLabel}
+            <span style="color:var(--accent);font-size:0.8rem;font-weight:600">⏭ 已跳过</span>
+          </div>
+          <div style="font-size:0.95rem;color:var(--text-light);margin-bottom:8px">${sent.chinese}</div>
+          <div style="font-size:1.1rem;font-weight:600;color:var(--text)">${sent.english}</div>
+          <div class="skipped-actions">
+            <button class="btn-listen" onclick="app.speakSentence(${sent.id})">🔊 听发音</button>
+            <button class="btn-unskip" onclick="app.unskipSentence(${sent.id})">↩ 重新挑战</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="fade-in">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <h2 style="font-size:1.3rem;color:var(--text)">已跳过的句子（${skippedSentences.length}）</h2>
+          <button class="btn-review" onclick="app.backToPractice()">← 返回练习</button>
+        </div>
+        ${cards}
+      </div>
+    `;
+  },
+
+  backToPractice() {
+    this.viewMode = 'practice';
+    this.currentIndex = 0;
+    this.currentRound = 1;
+    this.renderSentence();
+  },
+
+  speakSentence(sentenceId) {
+    const level = this.currentLevel;
+    const sent = level.sentences.find(s => s.id === sentenceId);
+    if (!sent) return;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(sent.english);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.5;
+      window.speechSynthesis.speak(utterance);
+    }
+  },
+
+  unskipSentence(sentenceId) {
+    const level = this.currentLevel;
+    const prog = this.progress[level.id];
+    const idx = prog.skipped.indexOf(sentenceId);
+    if (idx > -1) {
+      prog.skipped.splice(idx, 1);
+      prog.completed--;
+      saveProgress(this.progress);
+    }
+    // Remove the card from DOM
+    const card = document.getElementById('skip-card-' + sentenceId);
+    if (card) {
+      card.style.transition = 'opacity 0.3s, transform 0.3s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(20px)';
+      setTimeout(() => {
+        // Refresh the skipped review view
+        this.showSkippedReview();
+      }, 300);
+    }
+  },
+
+  showWords(sentence) {
+    const area = document.getElementById('wordArea');
+    if (!area) return;
+    // Common words that don't need explanation
+    const COMMON_WORDS = new Set([
+      'i','you','he','she','it','we','they','me','him','her','us','them',
+      'my','your','his','its','our','their','mine','yours','hers','ours','theirs',
+      'a','an','the','this','that','these','those',
+      'am','is','are','was','were','be','been','being',
+      'do','does','did','doing','done','have','has','had','having',
+      'will','would','can','could','should','shall','may','might','must',
+      'to','of','in','on','at','for','with','by','from','as','into','about','through',
+      'and','or','but','so','if','then','because','when','while','where','what','which','who','whom','whose','how','why',
+      'not','no','yes','very','too','also','just','only','here','there','now','then',
+      'some','any','all','each','every','both','few','more','most','other','such',
+      'than','like','up','down','out','off','over','under','again','once',
+      "don't","i'm","it's","that's","there's","what's","let's","i've","you're","we're","they're","he's","she's","isn't","aren't","wasn't","weren't","didn't","doesn't","won't","wouldn't","can't","couldn't","shouldn't","hadn't","hasn't","haven't",
+      'go','goes','went','gone','get','got','gets','getting','put','puts',
+      'say','said','says','saying','see','saw','seen','seeing','look','looked','looks','looking',
+      'know','knew','known','knows','think','thought','thinks','thinking',
+      'make','made','makes','making','take','took','taken','takes','taking',
+      'come','came','comes','coming','give','gave','given','gives','giving',
+      'one','two','three','first','second','last','next','new','old','good','bad','big','small','little','long','short','high','low',
+      'okay','ok','yeah','yes','oh','ah','well','right','um','uh',
+      'lot','thing','things','way','ways','time','times','day','days','year','years',
+      'want','wanted','wants','need','needed','needs','try','tried','tries','trying',
+      'let','lets','feel','felt','feels','tell','told','tells','telling','ask','asked','asks','asking',
+      'find','found','finds','finding','found','use','used','uses','using','work','worked','works','working',
+      'call','called','calls','calling','seem','seemed','seems','seeming','leave','left','leaves','leaving',
+      'mean','meant','means','meaning','keep','kept','keeps','keeping','let','lets','begin','began','begun','begins','beginning',
+      'show','showed','shown','shows','showing','hear','heard','hears','hearing','play','played','plays','playing',
+      'turn','turned','turns','turning','move','moved','moves','moving','live','lived','lives','living',
+      'believe','believed','believes','believing','hold','held','holds','holding','bring','brought','brings','bringing',
+      'happen','happened','happens','happening','write','wrote','written','writes','writing','sit','sat','sits','sitting',
+      'stand','stood','stands','standing','lose','lost','loses','losing','pay','paid','pays','paying','meet','met','meets','meeting',
+      'include','included','includes','including','continue','continued','continues','continuing','set','sets','setting',
+      'learn','learned','learns','learning','change','changed','changes','changing','lead','led','leads','leading',
+      'understand','understood','understands','understanding','watch','watched','watches','watching','follow','followed','follows','following',
+      'stop','stopped','stops','stopping','create','created','creates','creating','speak','spoke','spoken','speaks','speaking',
+      'read','reads','reading','allow','allowed','allows','allowing','add','added','adds','adding','spend','spent','spends','spending',
+      'grow','grew','grown','grows','growing','open','opened','opens','opening','walk','walked','walks','walking',
+      'win','won','wins','winning','offer','offered','offers','offering','remember','remembered','remembers','remembering',
+      'love','loved','loves','loving','consider','considered','considers','considering','appear','appeared','appears','appearing',
+      'buy','bought','buys','buying','wait','waited','waits','waiting','serve','served','serves','serving','die','died','dies','dying',
+      'send','sent','sends','sending','expect','expected','expects','expecting','build','built','builds','building',
+      'stay','stayed','stays','staying','fall','fell','fallen','falls','falling','cut','cuts','cutting',
+      'reach','reached','reaches','reaching','kill','killed','kills','killing','remain','remained','remains','remaining'
+    ]);
+    
+    // Filter to only uncommon words with meanings
+    const uncommonWords = sentence.words.filter(w => {
+      const clean = w.word.toLowerCase().replace(/[^a-z'-]/g, '');
+      return clean && !COMMON_WORDS.has(clean) && (w.meaning || w.pos);
+    });
+    
+    if (uncommonWords.length === 0) {
+      area.innerHTML = `
+        <div class="word-chips fade-in">
+          <p style="color:var(--text-light);font-size:0.9rem">本句无需特别讲解的生词 📚</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const chips = uncommonWords.map((w, idx) => `
+      <span class="word-chip" onclick="app.toggleWord(this, ${idx})" data-idx="${idx}">
+        ${w.word}
+        <span class="tooltip" id="tooltip-${idx}">${w.meaning_cn ? '🇨🇳 ' + w.meaning_cn : ''}${w.pos ? '<br>[' + w.pos + ']' : ''}${w.meaning ? '<br>🇬🇧 ' + w.meaning : ''}${w.collocation ? '<br>📌 ' + w.collocation : ''}</span>
+      </span>
+    `).join('');
+    area.innerHTML = `
+      <div class="word-chips fade-in">
+        ${chips}
+      </div>
+      <p style="margin-top:12px;font-size:0.8rem;color:var(--text-light)">👆 点击单词查看/收起释义</p>
+    `;
+    // Store current words for collocation display
+    this._currentWords = uncommonWords;
+  },
+
+  toggleWord(el, idx) {
+    const tooltip = el.querySelector('.tooltip');
+    if (!tooltip) return;
+    // Toggle visibility
+    const isVisible = tooltip.style.opacity === '1';
+    // Hide all other tooltips first
+    document.querySelectorAll('.word-chip .tooltip').forEach(t => {
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) scale(0.9)';
+    });
+    if (!isVisible) {
+      tooltip.style.opacity = '1';
+      tooltip.style.transform = 'translateX(-50%) scale(1)';
+    }
+  }
+};
+
+// Global keyboard listener: Enter to submit or go to next sentence
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  if (app.viewMode === 'skippedReview') return;
+
+  // If the "next" button exists, trigger it
+  const nextBtn = document.getElementById('nextBtn');
+  if (nextBtn && !nextBtn.disabled) {
+    e.preventDefault();
+    nextBtn.click();
+    return;
+  }
+
+  // If the input field exists and is not disabled, submit answer
+  const input = document.getElementById('answerInput');
+  if (input && !input.disabled) {
+    e.preventDefault();
+    app.checkAnswer();
+    return;
+  }
+});
+
+// PWA: Show iOS install hint on first visit
+(function() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  const hintShown = sessionStorage.getItem('installHintShown');
+
+  if (isIOS && !isStandalone && !hintShown) {
+    setTimeout(() => {
+      document.getElementById('installHint').classList.add('show');
+      sessionStorage.setItem('installHintShown', '1');
+    }, 2000);
+  }
+})();
+
+app.init();
+
+// Service Worker Registration for PWA offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      console.log('[PWA] Service Worker registered successfully');
+    }).catch((err) => {
+      console.log('[PWA] Service Worker registration failed:', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
